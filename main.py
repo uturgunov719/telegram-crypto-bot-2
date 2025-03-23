@@ -1,31 +1,34 @@
+import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import asyncio
+from aiogram.filters import CommandStart
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from datetime import datetime
+import pytz
 
-bot = Bot(token="7957818763:AAFLm17sgZvZPjLJkCHfgzixlaRCYqITIUQ", parse_mode=ParseMode.HTML)
+BOT_TOKEN = "7957818763:AAFLm17sgZvZPjLJkCHfgzixlaRCYqITIUQ"
+CHAT_ID = 969035847
+TZ_MOSCOW = pytz.timezone("Europe/Moscow")
+
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
+scheduler = AsyncIOScheduler(timezone=TZ_MOSCOW)
 
+# Меню с кнопкой 📊 Анализ
+main_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="📊 Анализ")],
+    ],
+    resize_keyboard=True
+)
+
+# Команда /start
 @dp.message(CommandStart())
-async def start_cmd(message: types.Message):
-    await message.answer("Привет! Нажми /analyze для анализа.")
+async def start_command(message: types.Message):
+    await message.answer("👋 Привет! Я готов к работе.\nНажми кнопку ниже, чтобы получить анализ рынка!", reply_markup=main_menu)
 
-@dp.message(Command("analyze"))
-async def analyze_cmd(message: types.Message):
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="📊 Получить анализ", callback_data="analyze")]
-        ]
-    )
-    await message.answer("Выбери опцию:", reply_markup=keyboard)
-
-@dp.callback_query(lambda c: c.data == "analyze")
-async def handle_callback(callback: types.CallbackQuery):
-    await callback.message.answer("📡 Анализ подключается...")
-
-async def main():
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+# Обработка нажатия на кнопку "📊 Анализ"
+@dp.message(lambda message: message.text == "📊 Анализ")
+async def handle_analysis_request
