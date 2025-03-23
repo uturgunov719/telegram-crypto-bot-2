@@ -8,12 +8,12 @@ from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime
 import pytz
 
-# 🔐 Твой токен и chat_id
+# 🔐 Токен и chat_id
 BOT_TOKEN = "7957818763:AAFLm17sgZvZPjLJkCHfgzixlaRCYqITIUQ"
 CHAT_ID = 969035847
 TZ_MOSCOW = pytz.timezone("Europe/Moscow")
 
-# Бот и диспетчер
+# Инициализация
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 scheduler = AsyncIOScheduler(timezone=TZ_MOSCOW)
@@ -23,21 +23,25 @@ scheduler = AsyncIOScheduler(timezone=TZ_MOSCOW)
 async def start_command(message: types.Message):
     await message.answer("👋 Привет! Бот работает.\n\n👉 Напиши /analyze, чтобы получить анализ по альткоинам!")
 
-# Команда /analyze
+# Команда /analyze + inline кнопка
 @dp.message(Command("analyze"))
 async def show_analysis_button(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 Получить анализ топ-5 альтов", callback_data="get_analysis")]
     ])
-    await message.answer("Нажми кнопку ниже, чтобы получить свежий анализ по рынку 👇", reply_markup=keyboard)
+    await message.answer(
+        "Нажми кнопку ниже, чтобы получить свежий анализ по рынку 👇",
+        reply_markup=keyboard
+    )
 
 # Обработка кнопки
 @dp.callback_query(lambda call: call.data == "get_analysis")
 async def handle_analysis_callback(callback: types.CallbackQuery):
-    await callback.message.edit_text("🧠 Анализ запрашивается... Подключаюсь к рынку 📡")
-    # Тут позже будет анализ как у профи
+    await callback.message.answer("🧠 Анализ запрашивается... Подключаюсь к рынку 📡")
+    # Здесь позже появится настоящий теханализ
+    await callback.answer()  # Убирает "часики" возле кнопки
 
-# Планировщик: ежедневная рассылка в 17:00
+# Планировщик на 17:00
 async def send_daily_analysis():
     now = datetime.now(TZ_MOSCOW).strftime("%Y-%m-%d %H:%M")
     fake_data = "📈 Топ-10 альткоинов сегодня:\n\n1. SOL +4.5%\n2. AVAX +3.1%\n3. LINK +2.8%\n..."
@@ -47,7 +51,6 @@ async def send_daily_analysis():
 async def main():
     scheduler.add_job(send_daily_analysis, CronTrigger(hour=17, minute=0))
     scheduler.start()
-
     print("✅ Бот с кнопкой и планировщиком запущен!")
     await dp.start_polling(bot)
 
