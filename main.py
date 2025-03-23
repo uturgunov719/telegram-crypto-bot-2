@@ -1,26 +1,25 @@
-import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import ParseMode
-from aiogram.dispatcher.fsm.storage.memory import MemoryStorage
+from aiogram.enums import ParseMode
+from aiogram.filters import CommandStart
 
-# Токен твоего бота (замени на свой токен)
-API_TOKEN = '7957818763:AAFLm17sgZvZPjLJkCHfgzixlaRCYqITIUQ'
-
-# Настройка логов
-logging.basicConfig(level=logging.INFO)
+# 🔐 Токен от BotFather
+BOT_TOKEN = "7957818763:AAFLm17sgZvZPjLJkCHfgzixlaRCYqITIUQ"
 
 # Инициализация бота и диспетчера
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(storage=MemoryStorage())
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher()
 
-# Обработчик сообщений
-@dp.message_handler()
-async def handle_message(message: types.Message):
-    chat_id = message.chat.id
-    await message.answer(f"Привет, мой кожаный друг! Твой chat_id: {chat_id}")
-    logging.info(f"Пользователь {chat_id} написал боту")
+# Обработчик команды /start
+@dp.message(CommandStart())
+async def handle_start(message: types.Message):
+    await message.answer("Привет! 👋 Я живой и работаю на Aiogram 3.x!")
 
-# Запуск бота
-if __name__ == '__main__':
-    asyncio.run(dp.start_polling(bot))
+# Главная асинхронная функция
+async def main():
+    print("Бот запущен...")
+    await dp.start_polling(bot)
+
+# Запуск
+if __name__ == "__main__":
+    asyncio.run(main())
