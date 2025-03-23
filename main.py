@@ -10,14 +10,10 @@ import pytz
 import requests
 import matplotlib.pyplot as plt
 import os
-from dotenv import load_dotenv
 
-# Загрузка переменных окружения
-load_dotenv()
-
-# Токены и настройки из .env
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = int(os.getenv("CHAT_ID"))
+# 🔐 ВСТАВЛЕННЫЕ ДАННЫЕ ВРУЧНУЮ
+BOT_TOKEN = "7957818763:AAFLm17sgZvZPjLJkCHfgzixlaRCYqITIUQ"
+CHAT_ID = 969035847
 TZ_MOSCOW = pytz.timezone("Europe/Moscow")
 
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
@@ -77,7 +73,7 @@ async def analysis_menu(message: types.Message):
     )
     await message.answer("💡 Выбери монету для анализа:", reply_markup=keyboard)
 
-# Обработка выбора монеты и прогноз на основе CoinGecko
+# Обработка анализа монеты + график
 @dp.callback_query(lambda c: c.data.startswith("analyze_"))
 async def handle_coin_analysis(callback: types.CallbackQuery):
     coin_id = callback.data.split("_")[1]
@@ -93,18 +89,35 @@ async def handle_coin_analysis(callback: types.CallbackQuery):
 
         trend = "📉 Рынок падает — рекомендуется ШОРТ" if change < -2 else "📈 Рынок растёт — можно входить в ЛОНГ" if change > 2 else "🤔 Рынок во флэте — жди подтверждения"
 
+        hist_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
+        hist_res = requests.get(hist_url, params={"vs_currency": "usd", "days": 1})
+        prices = hist_res.json()['prices']
+        times = [datetime.fromtimestamp(p[0] / 1000).strftime("%H:%M") for p in prices]
+        values = [p[1] for p in prices]
+
+        plt.figure(figsize=(9, 4))
+        plt.plot(times, values, marker=".", linewidth=2)
+        plt.title(f"{data['name']} — движение за 24ч")
+        plt.xticks(rotation=45)
+        plt.grid(True)
+        plt.tight_layout()
+        chart_path = f"{coin_id}_chart.png"
+        plt.savefig(chart_path)
+        plt.close()
+
         reply = (
             f"<b>{data['name']} ({data['symbol'].upper()})</b>\n"
             f"💰 Цена: ${price:.2f}\n"
             f"📊 Изменение за 24ч: {change:.2f}%\n"
             f"\n<b>{trend}</b>"
         )
+
+        photo = FSInputFile(chart_path)
+        await callback.message.answer_photo(photo, caption=reply, parse_mode=ParseMode.HTML)
+        os.remove(chart_path)
+
     except Exception as e:
-        reply = f"❌ Не удалось получить данные: {e}"
-
-    await callback.message.answer(reply, parse_mode=ParseMode.HTML)
-
-# Остальные функции (портфель, график и т.д.) можно обновить позже
+        await callback.message.answer(f"❌ Не удалось получить данные: {e}")
 
 # Запуск
 async def main():
