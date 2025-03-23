@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime
 import pytz
-import openai
+import requests
 import matplotlib.pyplot as plt
 import os
 from dotenv import load_dotenv
@@ -18,13 +18,11 @@ load_dotenv()
 # Токены и настройки из .env
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = int(os.getenv("CHAT_ID"))
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TZ_MOSCOW = pytz.timezone("Europe/Moscow")
 
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 scheduler = AsyncIOScheduler(timezone=TZ_MOSCOW)
-openai.api_key = OPENAI_API_KEY
 
 # Главное меню с кнопкой "МЕНЮ"
 main_menu = ReplyKeyboardMarkup(
@@ -70,79 +68,46 @@ async def go_back(message: types.Message):
 async def analysis_menu(message: types.Message):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="BTC", callback_data="analyze_BTC"), InlineKeyboardButton(text="ETH", callback_data="analyze_ETH")],
-            [InlineKeyboardButton(text="BNB", callback_data="analyze_BNB"), InlineKeyboardButton(text="ADA", callback_data="analyze_ADA")],
-            [InlineKeyboardButton(text="SOL", callback_data="analyze_SOL"), InlineKeyboardButton(text="AVAX", callback_data="analyze_AVAX")],
-            [InlineKeyboardButton(text="LINK", callback_data="analyze_LINK"), InlineKeyboardButton(text="MATIC", callback_data="analyze_MATIC")],
-            [InlineKeyboardButton(text="ARB", callback_data="analyze_ARB"), InlineKeyboardButton(text="XRP", callback_data="analyze_XRP")]
+            [InlineKeyboardButton(text="BTC", callback_data="analyze_bitcoin"), InlineKeyboardButton(text="ETH", callback_data="analyze_ethereum")],
+            [InlineKeyboardButton(text="BNB", callback_data="analyze_binancecoin"), InlineKeyboardButton(text="ADA", callback_data="analyze_cardano")],
+            [InlineKeyboardButton(text="SOL", callback_data="analyze_solana"), InlineKeyboardButton(text="AVAX", callback_data="analyze_avalanche-2")],
+            [InlineKeyboardButton(text="LINK", callback_data="analyze_chainlink"), InlineKeyboardButton(text="MATIC", callback_data="analyze_polygon")],
+            [InlineKeyboardButton(text="ARB", callback_data="analyze_arbitrum"), InlineKeyboardButton(text="XRP", callback_data="analyze_ripple")]
         ]
     )
     await message.answer("💡 Выбери монету для анализа:", reply_markup=keyboard)
 
-# Обработка выбора монеты и запрос в GPT
+# Обработка выбора монеты и прогноз на основе CoinGecko
 @dp.callback_query(lambda c: c.data.startswith("analyze_"))
 async def handle_coin_analysis(callback: types.CallbackQuery):
-    coin = callback.data.split("_")[1]
+    coin_id = callback.data.split("_")[1]
     await callback.answer()
-    await callback.message.answer(f"🧠 Запрашиваю анализ по <b>{coin}</b>...", parse_mode=ParseMode.HTML)
-
-    prompt = f"Представь, что ты трейдер. Дай технический анализ по {coin}/USDT. Укажи текущую точку входа, тренд, RSI, уровни поддержки/сопротивления и скажи, лонг или шорт. Кратко, как профи."
+    await callback.message.answer(f"🔍 Получаю данные по <b>{coin_id.upper()}</b>...", parse_mode=ParseMode.HTML)
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+        res = requests.get(url, params={"localization": "false", "tickers": "false", "market_data": "true"})
+        data = res.json()
+        price = data['market_data']['current_price']['usd']
+        change = data['market_data']['price_change_percentage_24h']
+
+        trend = "📉 Рынок падает — рекомендуется ШОРТ" if change < -2 else "📈 Рынок растёт — можно входить в ЛОНГ" if change > 2 else "🤔 Рынок во флэте — жди подтверждения"
+
+        reply = (
+            f"<b>{data['name']} ({data['symbol'].upper()})</b>\n"
+            f"💰 Цена: ${price:.2f}\n"
+            f"📊 Изменение за 24ч: {change:.2f}%\n"
+            f"\n<b>{trend}</b>"
         )
-        reply = response.choices[0].message.content
     except Exception as e:
-        reply = f"❌ Ошибка при запросе к GPT: {e}"
+        reply = f"❌ Не удалось получить данные: {e}"
 
-    await callback.message.answer(reply)
+    await callback.message.answer(reply, parse_mode=ParseMode.HTML)
 
-# Портфель
-@dp.message(lambda msg: msg.text == "\ud83d\udcbc \u041f\u043e\u0440\u0442\u0444\u0435\u043b\u044c")
-async def portfolio(message: types.Message):
-    await message.answer("💼 Здесь будет отображаться твой крипто-портфель. В будущем сюда можно добавить отслеживание активов.")
-
-# График с прогнозом
-@dp.message(lambda msg: msg.text == "\ud83d\udcc8 \u0413\u0440\u0430\u0444\u0438\u043a")
-async def chart(message: types.Message):
-    prices = [28000, 28200, 28100, 28500, 28900, 29100, 28800, 29200, 29400, 29500]
-    timestamps = list(range(len(prices)))
-    plt.figure(figsize=(8, 4))
-    plt.plot(timestamps, prices, marker='o')
-    plt.title("BTC/USDT: движение цены")
-    plt.xlabel("Время")
-    plt.ylabel("Цена, $")
-    plt.grid(True)
-    plt.tight_layout()
-    filepath = "btc_chart.png"
-    plt.savefig(filepath)
-    plt.close()
-
-    photo = FSInputFile(filepath)
-    await message.answer_photo(photo=photo, caption="📈 Пример графика BTC. Прогноз: возможен рост после закрепления выше $29,500")
-    os.remove(filepath)
-
-# Ежедневная рассылка
-async def send_daily_analysis():
-    now = datetime.now(TZ_MOSCOW).strftime("%Y-%m-%d %H:%M")
-    prompt = "Дай краткий технический обзор по 3 топ-альткоинам на сегодня. Укажи краткие точки входа и рекомендации."
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        text = response.choices[0].message.content
-    except Exception as e:
-        text = f"❌ Ошибка при получении анализа: {e}"
-    await bot.send_message(chat_id=CHAT_ID, text=f"🕔 {now} МСК\n\n{text}")
+# Остальные функции (портфель, график и т.д.) можно обновить позже
 
 # Запуск
 async def main():
-    scheduler.add_job(send_daily_analysis, CronTrigger(hour=17, minute=0))
     scheduler.start()
     print("✅ Бот запущен!")
     await dp.start_polling(bot)
