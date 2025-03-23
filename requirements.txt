@@ -1,9 +1,5 @@
 aiogram==3.4.1
 apscheduler
 pytz
-openai
-python-dotenv
+requests
 matplotlib
-aiogram==3.4.1
-apscheduler
-pytz
