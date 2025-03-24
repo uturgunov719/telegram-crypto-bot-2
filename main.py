@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import os
 
 # 🔐 ВСТАВЛЕННЫЕ ДАННЫЕ
-BOT_TOKEN = "7957818763:AAFLm17sgZvZPjLJkCHfgzixLaRCYqITIUQ"
+BOT_TOKEN = "7980459096:AAF-FST5zPLmyMwflq2H9mHpEI5kkpoAyJE"
 CHAT_ID = 969035847
 TZ_MOSCOW = pytz.timezone("Europe/Moscow")
 
